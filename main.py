@@ -110,33 +110,29 @@ df_naive = sup.naive_forecast(features_normalizadas[out_col].values,
 # df_naive.plot()
 """Multivariate LSTM Model"""
 
-# %%Hiper-Parameters
+# %% Tunning Hyper-Parameters
 
 days_future = 1
-n_layers = 3
+patience_ = 50
 train_perc = (0.75, 0.15, 0.10)
-batch_size = 64
-length = 32
-patience_ = 10
-learning_rate = 10**-4
 
-model, history, valid_ds = sup.model_pipeline(dataframe=features_normalizadas,
-                                              output_column=out_col,
-                                              days_in_the_future=days_future,
-                                              n_layers=n_layers,
-                                              train_perc=train_perc,
-                                              batch_size=batch_size,
-                                              length=length,
-                                              patience_=patience_,
-                                              learning_rate=learning_rate)
+hyper_par = {'n_layers': (2, 5),
+             'batch_size': [32, 64, 128, 256, 512],
+             'length': (8, 256),
+             'learning_rate': (-1, -6)}
+
+model, history, model_evl, valid_sets = sup.model_pipeline(
+    dataframe=features_normalizadas, output_column=out_col,
+    days_in_the_future=days_future, n_layers=n_layers, train_perc=train_perc,
+    batch_size=batch_size, length=length, patience_=patience_,
+    learning_rate=learning_rate)
 
 # %% Predicting and plotting predictions (Denormalizing)"""
-
-df_predicted = sup.model_prediction(model, valid_ds[0], valid_ds[1],
+df_predicted = sup.model_prediction(model, valid_sets[0], valid_sets[1],
                                     denorm=True,
                                     stats_out=stats_out)
 
-df_naive2 = sup.naive_forecast(serie=features_normalizadas[out_col],
+df_naive2 = sup.naive_forecast(serie=features_normalizadas[out_col].values,
                                days_in_the_future=days_future,
                                stats_out=stats_out, denorm=True)
 
@@ -242,10 +238,11 @@ plt.xlabel('epoch')
 plt.legend(['train', 'test'], loc='upper right')
 plt.show()
 
-"""##Exemplos de Predição"""
+"""##Exemplos de Predição
 sup.show_predictions(model, valid_ds[0], valid_ds[1], stats_out, denorm=True,
                      output_column=out_col, length=length,
-                     days_in_the_future=days_future)
+                     days_in_the_future=days_future)"""
+
 # %% Plotting Actual x Predictions"""
 
 x = min([min(df_summ['Actual']), min(df_summ['Predicted'])])
@@ -257,3 +254,23 @@ sns.lineplot([x, y], [x, y], color='red')
 plt.xlabel("Actual")
 plt.ylabel("Predicted")
 plt.title('Predições x Real')
+
+# %%
+
+days_future = 1
+patience_ = 3
+train_perc = (0.75, 0.15, 0.10)
+
+hyper_par = {'n_layers': (2, 5),
+             'batch_size': [32, 64, 128, 256, 512],
+             'length': (8, 256),
+             'learning_rate': (-1, -6)}
+
+df_evl, models = sup.random_tune_hyperpar(dataframe=features_normalizadas,
+                                          output_column=out_col,
+                                          hyper_dict=hyper_par,
+                                          days_in_the_future=1,
+                                          patience_=5, sampling_rate=1,
+                                          train_perc=(0.75, 0.15, 0.10),
+                                          epochs=1000, random_searchs=3)
+

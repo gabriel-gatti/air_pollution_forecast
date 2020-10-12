@@ -87,6 +87,7 @@ def model_pipeline(dataframe, output_column, days_in_the_future=1, n_layers=3,
         5. Train the model according to early-stop callback
         6. Load and return the model that had the lowest loss among all the
         epochs
+        7. Evaluate the model with the validation set
 
     Input   ->  01. dataframe:          Raw dataset we're going use to
                                         create the train, dev and valid sets
@@ -126,7 +127,9 @@ def model_pipeline(dataframe, output_column, days_in_the_future=1, n_layers=3,
                               drop_out=0.2, n_layers=n_layers)
 
     # Compilando---------------------------------------------------------------
-    model.compile(loss=tf.keras.losses.Huber(), optimizer='adam',
+    model.compile(loss=tf.keras.losses.Huber(),
+                  optimizer=tf.keras.optimizers.Adam(lr=learning_rate,
+                                                     clipnorm=1),
                   metrics=["mape", "mae",
                            tf.keras.metrics.RootMeanSquaredError()])
 
@@ -138,13 +141,16 @@ def model_pipeline(dataframe, output_column, days_in_the_future=1, n_layers=3,
 
     # Training the neural network----------------------------------------------
     history = model.fit(train_sets[0], epochs=epochs,
-                        validation_data=dev_sets[0], steps_per_epoch=50,
+                        validation_data=dev_sets[0],
                         callbacks=[early_stopping, model_checkpoint])
 
     # Loading the best model---------------------------------------------------
     model = tf.keras.models.load_model(model_name)
 
-    return model, history, valid_sets
+    # Loading the best model--------------------------------------------------_
+    evaluation = model.evaluate(valid_sets[0])
+
+    return model, history, evaluation, valid_sets
 
 
 def create_LSTM_model(n_var_input, length=128, days_in_the_future=1,
@@ -167,19 +173,19 @@ def create_LSTM_model(n_var_input, length=128, days_in_the_future=1,
     # Group of layers----------------------------------------------------------
     for i in range(1, int(n_layers-1)):
         model.add(layers.LSTM(max((length+1)//2**i, days_in_the_future),
-                              activation='sigmoid', return_sequences=True))
+                              activation='relu', return_sequences=True))
 
         model.add(layers.TimeDistributed(layers.Dense(
             (length+1)//max(2**(i+1), days_in_the_future),
-            activation='sigmoid')))
+            activation='relu')))
 
         model.add(layers.Dropout(0.2))
 
     # Output group of layers---------------------------------------------------
     model.add(layers.LSTM(max((length+1)//2**n_layers, days_in_the_future),
-              activation='sigmoid', return_sequences=False))
+              activation='relu', return_sequences=False))
 
-    model.add(layers.Dense(days_in_the_future, activation='sigmoid'))
+    model.add(layers.Dense(days_in_the_future, activation='relu'))
 
     return model
 
@@ -206,7 +212,6 @@ def generate_dataset(dataframe, output_column, days_in_the_future=1,
     ========================================================================"""
 
     total_perc = train_perc[0] + train_perc[1] + train_perc[2]
-    print(total_perc)
     assert (total_perc >= 0.999), "train_perc should sum up to 1"
 
     data = dataframe.values[:-days_in_the_future]
@@ -306,3 +311,51 @@ def show_predictions(model, valid_ds, valid_tgt, stats_out, denorm=False,
                         s=80)
 
     plt.show()
+
+
+def random_tune_hyperpar(dataframe, output_column, hyper_dict,
+                         days_in_the_future=1, patience_=50,
+                         train_perc=(0.75, 0.15, 0.10), sampling_rate=1,
+                         epochs=1000, random_searchs=30):
+    """========================================================================
+    Show example of predictions, acutal values and the data used for prediciton
+
+    Inputs  ->  1. serie:                Time series
+                2. days_in_the_future:   Lenght of the prediction
+                3. stats_out:            tuple(average of 1 feature,
+                                               standart deviation of 1 feature)
+                4. denormalize:          If we are going to denormalize or not
+
+    Output  ->  Chart with 12 subplots
+    ========================================================================"""
+
+    for search in range(random_searchs):
+        models = []
+        df_evl = pd.DataFrame(columns=['loss', 'mape', 'mae', 'rmse',
+                                       'n_layers', 'batch_size', 'length',
+                                       'learning_rate'])
+        print('Search: ' + str(search))
+
+        n_layers = np.random.randint(hyper_dict['n_layers'][0],
+                                     hyper_dict['n_layers'][1])
+        batch_size = np.random.choice(hyper_dict['batch_size'])
+        length = np.random.randint(hyper_dict['length'][0],
+                                   hyper_dict['length'][1])
+        learning_rate = 10**np.random.uniform(hyper_dict['learning_rate'][0],
+                                              hyper_dict['learning_rate'][1])
+
+        model, history, model_evl, valid_sets = model_pipeline(
+            dataframe=dataframe, output_column=output_column,
+            days_in_the_future=days_in_the_future, n_layers=n_layers,
+            train_perc=train_perc, batch_size=batch_size, length=length,
+            patience_=patience_, learning_rate=learning_rate)
+
+        evl_row = [model_evl[0], model_evl[1], model_evl[2],
+                   model_evl[3], n_layers, batch_size, length, learning_rate]
+        print('\n\n\n' + str(evl_row) + '\n\n\n')
+
+        df_evl.loc[search] = evl_row
+
+        models.append(model)
+
+    return df_evl, models
