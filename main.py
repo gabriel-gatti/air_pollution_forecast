@@ -3,6 +3,7 @@
 @author: Gabriel Gatti Lima
 e-mail: gabriel.gatti.lima@usp.br
 """
+#teste
 import support_module as sup
 import tensorflow as tf
 import numpy as np
@@ -273,4 +274,3 @@ df_evl, models = sup.random_tune_hyperpar(dataframe=features_normalizadas,
                                           patience_=5, sampling_rate=1,
                                           train_perc=(0.75, 0.15, 0.10),
                                           epochs=1000, random_searchs=3)
-
