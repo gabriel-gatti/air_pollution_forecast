@@ -2,11 +2,12 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 tf.autograph.set_verbosity(1, alsologtostdout=False)
-
+from copy import deepcopy
 from pipeline import Training_Process
 from lstm_model import LSTM_Model
 from tensorflow.python.keras.utils.data_utils import Sequence
 import datetime
+import json
 
 config_dict={
     'HYPERPARAMETERS' : {
@@ -21,14 +22,14 @@ config_dict={
         'INPUT_DF_NAME': 'Hourly_Complete_TOTAL.pkl',
     },
     'PARAMS': {
-        'random_searchs': 2,
-        'output_column': ['PM 2.5', 'Sulfur Dioxide (p.p.b)'],
-        'patience': 1,
+        'random_searchs': 10,
+        'output_column': ['PM 2.5'], #['PM 2.5', 'Sulfur Dioxide (p.p.b)'],
+        'patience': 35,
         'sampling_rate': 1,
         'days_in_future': 1,
         'division_perc': (0.6, 0.2, 0.2),
-        'epochs': 2,
-    },
+        'epochs': 100,
+    }
 }
 
 def randomize_hyperparameter_tuning(hyper_dict:dict) -> dict:#(self, dataframe, output_column, hyper_dict, days_in_the_future=1, patience_=50, train_perc=(0.75, 0.15, 0.10), sampling_rate=1, epochs=1000, random_searchs=30):
@@ -62,15 +63,18 @@ def main(config_dict: dict):
         # Train the model
         hyper_trained = Training_Process(df_input, **settings)
         
-        settings['EVALUATION']: hyper_trained.evaluation
-        settings['MODEL']: hyper_trained.model
-        settings['HISTORY']: hyper_trained.history
-        settings['MODEL_NAME']: hyper_trained.model_name
+        settings['evaluation']= hyper_trained.evaluation
+        settings['model']= hyper_trained.model.to_json()
+        settings['history']= json.dumps(hyper_trained.history.history)
+        settings['model_name']= hyper_trained.model_name
         
-        lista_de_resultados.append(settings)
+        lista_de_resultados.append(deepcopy(settings))
         
     return lista_de_resultados
 
 
-pd.DataFrame(main(config_dict)).to_csv('/home/gabriel-gatti/Documents/air_pollution_forecast/resultado.csv')
+resultados = main(config_dict)
+save_path = f"/home/gabriel-gatti/Documents/air_pollution_forecast/resultado/resultado_{datetime.datetime.now().strftime('%Y%b%d-%H%M%S')}.csv"
+pd.DataFrame(resultados).to_csv(save_path)
 
+print('Done !!!!')
