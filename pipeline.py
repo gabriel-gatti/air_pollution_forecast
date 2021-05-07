@@ -6,12 +6,19 @@ from tensorflow.keras import layers
 tf.autograph.set_verbosity(0, alsologtostdout=False)
 
 import datetime
-
+from itertools import chain, tee
 from lstm_model import LSTM_Model
+from tensorflow.python.keras.utils.data_utils import Sequence
+from copy import deepcopy
+
+def generator_TS(generators_list):
+    for generator in generators_list:
+        for batch in generator.__iter__():
+            yield batch[0], batch[1]
 
 class Training_Process():
     
-    def __init__(self, df_input: pd.DataFrame,  days_in_future: int, division_perc:tuple, batch_size: int, sampling_rate: int, length: int, output_column: list, n_layers:int, drop_out:float, epochs:int, patience:int, learning_rate:float):
+    def __init__(self, df_input: pd.DataFrame,  days_in_future: int, division_perc:tuple, batch_size: int, sampling_rate: int, length: int, output_column: list, n_layers:int, drop_out:float, epochs:int, patience:int, learning_rate:float, **kargs):
         try:   
             assert sum(division_perc) >= 0.999, f"division_perc should sum up to 1 | {division_perc}"
             assert map(lambda x: isinstance(x, str), output_column), f'output_column must be a list of str | {output_column}'
@@ -38,11 +45,16 @@ class Training_Process():
         self.epochs=epochs
         self.patience_=patience
         self.learning_rate=learning_rate
+        self.columns_to_drop=['Latitude', 'Longitude', 'Date-Time']
         self.model_name = f'MODEL_{datetime.datetime.now().strftime("%Y%b%d-%H%M%S")}_LR={str(self.learning_rate)}_#Layers={str(self.n_layers)}_#LG={str(self.length)}_#BS={str(self.batch_size)}.h5'
         print(self.model_name)
 
-        self.model, self.history, self.evaluation, self.valid_sets = self.model_pipeline()
+        # create Frames
+        self.train_data, self.train_target, self.dev_data, self.dev_target, self.valid_data, self.valid_target = self.generate_dataset()
+        print('Datasets Generated !!!!')
         
+        self.model, self.history, self.evaluation, self.valid_sets = self.model_pipeline()
+        print('Training Process Finished')
 
     def generate_dataset(self):#, dataframe, output_column, days_in_the_future=1, train_perc=(0.7, 0.2, 0.1), batch_size=32, sampling_rate=1, length=256):
         """========================================================================
@@ -62,32 +74,57 @@ class Training_Process():
                                     (dev_gen, dev_target),
                                     (valid_gen, valid_target)]
         ========================================================================"""        
+        self.raw_dataframe.sort_values(by=['Latitude', 'Longitude', 'Day', 'Hour'], inplace=True)
+        self.raw_dataframe = self.raw_dataframe.drop_duplicates(subset=['Latitude', 'Longitude', 'Day', 'Hour'], keep='first')
+        
+        train_gen, train_target, dev_gen, dev_target, valid_gen, valid_target = [], [], [], [], [], []        
 
-        data = self.raw_dataframe.values[:-self.days_in_future]
-        target = np.array([self.raw_dataframe[self.output_column].values[self.days_in_future:]])
-        target = target.reshape(
-            self.raw_dataframe[self.output_column].values[:-self.days_in_future].shape[0], 1)
-        train_split = int(len(self.raw_dataframe.index)*self.division_perc[0])
-        dev_split = int(len(self.raw_dataframe.index)*(sum(self.division_perc[0:2])))
 
-        train_target = target[self.days_in_future:train_split]
-        dev_target = target[self.length+train_split:self.length+dev_split]
-        valid_target = target[self.length+dev_split:]
 
-        train_gen = tf.keras.preprocessing.sequence.TimeseriesGenerator(
-            data, target, length=self.length, sampling_rate=self.sampling_rate,
-            batch_size=self.batch_size, end_index=train_split, shuffle=True)
+        datas, targets, splits = [], [], []
+        for _, df_coord in self.raw_dataframe.groupby(by=['Latitude', 'Longitude']):
+            # Remove possible torubles batching
+            if df_coord.shape[0] > self.batch_size*2*self.length:
+                # Define Target and Data based on the ouput column
+                df_target = df_coord[self.output_column]
+                df_data = df_coord.drop(columns=self.output_column)
+                df_data = df_data.drop(columns=self.columns_to_drop)
 
-        valid_gen = tf.keras.preprocessing.sequence.TimeseriesGenerator(
-            data, target, length=self.length, sampling_rate=self.sampling_rate,
-            batch_size=self.batch_size, start_index=dev_split, shuffle=False)
+                # Create Data and Target Np.arrays
+                data = df_data.values[:-self.days_in_future]
+                datas.append(data) 
 
-        dev_gen = tf.keras.preprocessing.sequence.TimeseriesGenerator(
-            data, target, length=self.length, sampling_rate=self.sampling_rate,
-            batch_size=self.batch_size, start_index=train_split,
-            end_index=dev_split, shuffle=False)
+                target = np.array([df_target.values[self.days_in_future:]])
+                target = target.reshape(
+                    df_target.values[:-self.days_in_future].shape[0], len(self.output_column))
+                targets.append(target)
 
-        return train_gen, train_target, dev_gen, dev_target, valid_gen, valid_target
+                #defining split points
+                train_split = int(len(df_coord.index)*self.division_perc[0])
+                dev_split = int(len(df_coord.index)*(sum(self.division_perc[0:2])))
+                splits.append((train_split, dev_split))
+
+                # create targets list
+                train_target.append(target[self.days_in_future:train_split])
+                dev_target.append(target[self.length+train_split:self.length+dev_split])
+                valid_target.append(target[self.length+dev_split:])
+
+        zip_dados = lambda datas, targets, splits: zip(datas, targets, splits)
+        # create generators of Timeseries
+        train_gen = generator_TS([tf.keras.preprocessing.sequence.TimeseriesGenerator(
+            dt, tgt, length=self.length, sampling_rate=self.sampling_rate,
+            batch_size=self.batch_size, end_index=split[0], shuffle=True) for dt, tgt, split in zip_dados(datas, targets, splits)])
+
+        valid_gen = generator_TS([tf.keras.preprocessing.sequence.TimeseriesGenerator(
+            dt, tgt, length=self.length, sampling_rate=self.sampling_rate,
+            batch_size=self.batch_size, start_index=split[1], shuffle=False) for dt, tgt, split in zip_dados(datas, targets, splits)])
+
+        dev_gen = generator_TS([tf.keras.preprocessing.sequence.TimeseriesGenerator(
+            dt, tgt, length=self.length, sampling_rate=self.sampling_rate,
+            batch_size=self.batch_size, start_index=split[0],
+            end_index=split[1], shuffle=False) for dt, tgt, split in zip_dados(datas, targets, splits)])
+
+        return train_gen, chain(train_target), dev_gen, chain(dev_target), valid_gen, chain(valid_target)
 
     def model_pipeline(self):
         """========================================================================
@@ -119,35 +156,34 @@ class Training_Process():
                                         the epochs
                     2. Training History: Metrics and loss at the end of each epoch
         ========================================================================"""
-        # create Frames
-        self.train_data, self.train_target, self.dev_data, self.dev_target, self.valid_data, self.valid_target = self.generate_dataset()
-
         # Create Model-------------------------------------------------------------
-        lstm_model = LSTM_Model(len(self.raw_dataframe.columns), self.length, self.days_in_future, self.drop_out, self.n_layers)
+        lstm_model = LSTM_Model(len(self.raw_dataframe.columns)-len(self.columns_to_drop)-len(self.output_column), self.length, self.days_in_future, self.drop_out, self.n_layers)
+        print('Model Created !!!!')
 
         # Definindo Call-Backs-----------------------------------------------------
         model_checkpoint = tf.keras.callbacks.ModelCheckpoint(self.model_name, save_best_only=True)
         early_stopping = tf.keras.callbacks.EarlyStopping(patience=self.patience_)
-
+        print('Callbacks Defined !!!!')
 
         # Compilando---------------------------------------------------------------
         lstm_model.model.compile(loss=tf.keras.losses.Huber(),
                     optimizer=tf.keras.optimizers.Adam(lr=self.learning_rate, clipnorm=1),
                     metrics=["mape", "mae", tf.keras.metrics.RootMeanSquaredError()])
+        print('Model Compiled !!!!')
 
         # Training the neural network----------------------------------------------
-        #print(type(self.epochs))
-        #print(type(self.train_data))
-        #print(type(self.dev_data))
         history = lstm_model.model.fit(self.train_data, epochs=self.epochs,
                             validation_data=self.dev_data,
                             callbacks=[early_stopping, model_checkpoint],
                             use_multiprocessing=True)
+        print('Model Trained !!!')
 
         # Loading the best model---------------------------------------------------
         best_model = tf.keras.models.load_model(self.model_name)
+        print('Best Model Loaded !!!')
 
-        # Loading the best model--------------------------------------------------_
+        # Loading the best model---------------------------------------------------
         evaluation = best_model.evaluate(self.valid_data)
+        print('Model Evaluated !!!')
 
         return best_model, history, evaluation, (self.valid_data, self.valid_target)

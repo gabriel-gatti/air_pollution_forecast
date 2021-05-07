@@ -5,27 +5,29 @@ tf.autograph.set_verbosity(1, alsologtostdout=False)
 
 from pipeline import Training_Process
 from lstm_model import LSTM_Model
+from tensorflow.python.keras.utils.data_utils import Sequence
+import datetime
 
 config_dict={
     'HYPERPARAMETERS' : {
-        'N_LAYERS': (1, 4),
-        'DROP_OUT': (0, 0,5),
-        'BATCH_SIZE': [32, 64, 128, 256, 512],
-        'LENGTH': (1, 49),
-        'LEARNING_RATE': (-4, -1)
+        'n_layers': (1, 4),
+        'drop_out': (0, 0,5),
+        'batch_size': [32, 64, 128, 256, 512],
+        'length': (1, 49),
+        'learning_rate': (-4, -1)
     },
     'DATA':{
-        'FOLDER_PATH': '/home/gabriel-gatti/Documents/air_pollution_forecast',
-        'INPUT_DF_NAME': 'hourly_inner_join.pkl',
+        'FOLDER_PATH': '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/Unified Pickles',
+        'INPUT_DF_NAME': 'Hourly_Complete_TOTAL.pkl',
     },
     'PARAMS': {
-        'RANDOM_SEARCHS': 2,
-        'OUTPUT_COLUMN': 'Temperature (ºF)',
-        'PATIENCE': 1,
-        'SAMPLING_RATE': 1,
-        'DAYS_IN_FUTURE': 1,
-        'DIVISION_PERC': (0.6, 0.2, 0.2),
-        'EPOCHS': 1,
+        'random_searchs': 2,
+        'output_column': ['PM 2.5', 'Sulfur Dioxide (p.p.b)'],
+        'patience': 1,
+        'sampling_rate': 1,
+        'days_in_future': 1,
+        'division_perc': (0.6, 0.2, 0.2),
+        'epochs': 2,
     },
 }
 
@@ -36,13 +38,13 @@ def randomize_hyperparameter_tuning(hyper_dict:dict) -> dict:#(self, dataframe, 
 float(
             Output  ->  
             ========================================================================"""
-            n_layers = np.random.randint(hyper_dict['N_LAYERS'][0], hyper_dict['N_LAYERS'][1])
-            batch_size = np.random.choice(hyper_dict['BATCH_SIZE'])
-            length = np.random.randint(hyper_dict['LENGTH'][0], hyper_dict['LENGTH'][1])
-            learning_rate = 10**np.random.uniform(hyper_dict['LEARNING_RATE'][0], hyper_dict['LEARNING_RATE'][1])
-            drop_out = np.random.uniform(hyper_dict['DROP_OUT'][0], hyper_dict['DROP_OUT'][1])
+            n_layers = np.random.randint(hyper_dict['n_layers'][0], hyper_dict['n_layers'][1])
+            batch_size = np.random.choice(hyper_dict['batch_size'])
+            length = np.random.randint(hyper_dict['length'][0], hyper_dict['length'][1])
+            learning_rate = 10**np.random.uniform(hyper_dict['learning_rate'][0], hyper_dict['learning_rate'][1])
+            drop_out = np.random.uniform(hyper_dict['drop_out'][0], hyper_dict['drop_out'][1])
             
-            return { 'N_LAYERS': int(n_layers), 'DROP_OUT': float(drop_out), 'BATCH_SIZE': int(batch_size), 'LENGTH': int(length), 'LEARNING_RATE': float(learning_rate)}
+            return { 'n_layers': int(n_layers), 'drop_out': float(drop_out), 'batch_size': int(batch_size), 'length': int(length), 'learning_rate': float(learning_rate)}
 
 def main(config_dict: dict):
     #Definindo o DataFrame Base 
@@ -50,7 +52,7 @@ def main(config_dict: dict):
 
     #Definindo os parametros e hyperparametros
     settings = config_dict['PARAMS']
-    hyperparam_list = [randomize_hyperparameter_tuning(config_dict['HYPERPARAMETERS']) for i in range(0,config_dict['PARAMS']['RANDOM_SEARCHS'])]
+    hyperparam_list = [randomize_hyperparameter_tuning(config_dict['HYPERPARAMETERS']) for i in range(0,config_dict['PARAMS']['random_searchs'])]
 
     lista_de_resultados = []
     #Criando os processo de trainamento
@@ -58,19 +60,7 @@ def main(config_dict: dict):
         settings.update(hyperparam_set)
 
         # Train the model
-        hyper_trained = Training_Process(
-            df_input=df_input[['Latitude', 'Longitude', 'Temperature (ºF)', 'Relative Humidity (%)', 'Wind Speed - Resultant (knots)', 'Barometric pressure (Millibars)']],
-            sampling_rate=settings['SAMPLING_RATE'],
-            output_column=settings['OUTPUT_COLUMN'],
-            division_perc=settings['DIVISION_PERC'],
-            days_in_future=settings['DAYS_IN_FUTURE'],
-            epochs=settings['EPOCHS'],
-            patience=settings['PATIENCE'],
-            batch_size=settings['BATCH_SIZE'],
-            length=settings['LENGTH'],
-            n_layers=settings['N_LAYERS'],
-            drop_out=settings['DROP_OUT'],
-            learning_rate=settings['LEARNING_RATE'])
+        hyper_trained = Training_Process(df_input, **settings)
         
         settings['EVALUATION']: hyper_trained.evaluation
         settings['MODEL']: hyper_trained.model
@@ -78,7 +68,7 @@ def main(config_dict: dict):
         settings['MODEL_NAME']: hyper_trained.model_name
         
         lista_de_resultados.append(settings)
-
+        
     return lista_de_resultados
 
 

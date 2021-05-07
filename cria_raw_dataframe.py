@@ -1,4 +1,4 @@
-# %% Importando Bibliotecas
+
 import pandas as pd
 from datetime import datetime as dt
 import os
@@ -6,15 +6,9 @@ import re
 #  r"C:\Users\gabri\Documents\ESTAT\Projeto\Dados AIP\{}\{}_{}.csv".format(variavel, variavel, ano)
 
 config = {
-    'ORIGIN_FOLDER_PATH': '/home/gabriel-gatti/Documents/air_pollution_forecast',
-    'FILE_2_COL': { 
-        'hourly_TEMP_TOTAL.pkl': 'Temperature (ºF)',
-        'hourly_WIND_TOTAL.pkl': 'Wind Speed - Resultant (knots)',
-        'hourly_RH_DP_TOTAL.pkl': 'Relative Humidity (%)',
-        'hourly_PRESS_TOTAL.pkl': 'Barometric pressure (Millibars)'
-    },
+    'ORIGIN_FOLDER_PATH': '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/Unified Pickles',
     'USE_COLS': ['Sample Measurement', 'Latitude', 'Longitude', 'Date GMT', 'Time GMT'],
-    'DESTINATION_FOLDER_PATH': '/home/gabriel-gatti/Documents/air_pollution_forecast'
+    'DESTINATION_FOLDER_PATH': '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp'
 }
 
 class DataHandler:
@@ -51,7 +45,7 @@ class DataHandler:
         for df_key in df_key_list:
             self.dataframes.pop(df_key, None)
 
-    def load_csv_files(self, file_names:list, save2memory:bool=False):
+    def load_csv_files(self, file_names:list):
         file_names = file_names if isinstance(file_names, list) else [file_names]
         for file_name in file_names:
             print(f'Reading: ' + self.origin_folder_path + '/' + file_name)
@@ -76,72 +70,78 @@ def main():
 
 df_data = main()
 # %% Data Exploration
-'''
-comeco = dt.now()
+import pandas as pd
+from datetime import datetime as dt
+import os
+import re
 
+def select_files_from_folder(origin_folder_path, regex_pattern: str) -> list:
+    files_list = os.listdir(origin_folder_path)
+    return list(filter(lambda file: re.search(regex_pattern, file), files_list))
 
-for variavel, nome_variavel in dict_nome_arq.items():
+def read_large_csv(caminho: str) -> pd.DataFrame:
+    mylist = []
+    return pd.concat([mylist.append(chunk) for chunk in pd.read_csv(caminho, low_memory=False, chunksize=20000)], axis=0)
 
-    time_temp = dt.now()
-    df_main = pd.read_csv(r"/media/gabriel-gatti/HDD/Users/gabri/Documents/ESTAT/Projeto/Dados AIP/{}/{}_{}.csv".format(variavel, variavel, 2000), low_memory=True, usecols=use_cols)
-    print('Tempo de leitura do {}: {}'.format(2000, dt.now() - time_temp))
-
-    semi_comeco = dt.now()
-    for ano in range(2001, 2021):
-
+path = '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/Unified Pickles'
+df_temp = ''
+for file in select_files_from_folder(path, '.*\.pkl'):
+    filename = f'{path}/{file}'
+    if isinstance(df_temp, str):
+        print(f'Reading: {file}')
         time_temp = dt.now()
-        mylist = []
-        for chunk in pd.read_csv(r"/media/gabriel-gatti/HDD/Users/gabri/Documents/ESTAT/Projeto/Dados AIP/{}/{}_{}.csv".format(variavel, variavel, ano), low_memory=False, usecols=use_cols, chunksize=20000):
-            mylist.append(chunk)
+        df_temp = pd.read_pickle(filename)
+        print(f'Tempo de leitura do {file}: {dt.now() - time_temp}')
+    else:
+        print(f'Reading and Inner Joining: {file}')
+        df_temp = pd.merge(df_temp, pd.read_pickle(filename), on=['Latitude','Longitude', 'Date GMT', 'Time GMT'], how="inner")
+        print(f'Tempo de leitura do {file}: {dt.now() - time_temp}')
 
-        df_temp = pd.concat(mylist, axis=0)
-        del mylist
-        del chunk
-        print('Tempo de leitura do {}_{}: {}'.format(variavel, ano, dt.now() - time_temp))
+pos_name = path  + '/Hourly_Complete_TOTAL.pkl'
+print('Saving Pickle to : Hourly_Complete_TOTAL.pkl')
+df_temp.sort_values(by=['Latitude','Longitude', 'Date GMT', 'Time GMT'], inplace=True)
+df_temp.drop_duplicates(subset=['Latitude','Longitude', 'Date GMT', 'Time GMT'], keep='first', inplace=True)
+df_temp.to_pickle(pos_name)
 
-        time_temp = dt.now()
-        df_main = pd.concat([df_main, df_temp])
-        df_main
-        print('Tempo de concat do {}_{}: {}'.format(variavel, ano, dt.now() - time_temp))
-
-    del df_temp
-
-    time_temp = dt.now()
-    df_main.rename({'Sample Measurement': nome_variavel})
-    df_main.to_csv(r"/media/gabriel-gatti/HDD/Users/gabri/Documents/ESTAT/Projeto/Dados AIP/{}_TOTAL_antes.csv".format(variavel))
-    del df_main
-    print('Tempo de escrita do CSV: {}'.format(dt.now() - time_temp))
-
-    print('Tempo semi-TOTAL {}: {}'.format(variavel, dt.now() - semi_comeco))
-
-print('Tempo TOTAL: {}'.format(dt.now() - comeco))
 
 #%%
-comeco = dt.now()
+'''
+dict_types = {
+    'hourly_42401': ('Sulfur Dioxide', 'ppb'),
+    'hourly_88101': ('PM 2.5', 'Microgrmas/Cubic Meter'),
+}
 
-df_main = le_csv_grande(r"/media/gabriel-gatti/HDD/Users/gabri/Documents/ESTAT/Projeto/Dados AIP/hourly_PRESS_TOTAL_antes.csv")
-df_main.rename({'Sample Measurement': 'Barometric pressure (Millibars)'})
-df_main.set_index(['Latitude', 'Longitude','Date GMT', 'Time GMT'])
+path = '/media/gabriel-gatti/HDD/Users/gabri/Documents/ESTAT/Projeto/Dados AIP/'
+dest_path = '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/'
 
-for variavel, nome_variavel in [
-        ['hourly_TEMP', 'Temperature (ºF)'],
-        ['hourly_WIND', 'Wind Speed - Resultant (knots)'],
-        ['hourly_RH_DP', 'Relative Humidity (%)']]:
-        #['hourly_PRESS', 'Barometric pressure (Millibars)']]:
+for key in dict_types.keys():
+        for file in select_files_from_folder('/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/Unified Pickles', '.*\.pkl'):
+        filename = path+key+'/'+file
+        if isinstance(df_temp, str):
+            print(f'Reading: {file}')
+            time_temp = dt.now()
+            df_temp = pd.read_pickle(filename)
+            print(f'Tempo de leitura do {file}: {dt.now() - time_temp}')
+        else:
+            print(f'Reading and Concating: {file}')
+            df_temp = pd.concat([df_temp, pd.read_csv(filename)
+            print(f'Tempo de leitura do {file}: {dt.now() - time_temp}')
 
-    df_temp = le_csv_grande(r"/media/gabriel-gatti/HDD/Users/gabri/Documents/ESTAT/Projeto/Dados AIP/{}_TOTAL_antes.csv".format(variavel))
-    df_temp.rename({'Sample Measurement': nome_variavel})
-    df_temp.set_index(['Latitude', 'Longitude','Date GMT', 'Time GMT'])
+    pos_name = dest_path + key + '_TOTAL.pkl'
+    print('Saving Pickle to : ' + pos_name)
 
-    time_temp = dt.now()
-    df_main = pd.concat([df_main, df_temp], axis=1)
-    print('Tempo de concat do {}: {}'.format(variavel, dt.now() - time_temp))
-
-
-df_main.to_csv(r"C:/media/gabriel-gatti/HDD/Users/gabri/Documents/ESTAT/Projeto/Dados AIP/UNIFICADO_2000-2020.csv")
-print('Tempo TOTAL: {}'.format(dt.now() - comeco))
+    df_temp.rename(columns={'Sample Measurement': dict_types[key][0]})
+    df_temp.to_pickle(pos_name)
 
 '''
+#%%
+'''
+df_input = df_input.apply(lambda x: datetime.datetime.strptime(' '.join([x['Date GMT'], x['Time GMT']]), '%Y-%m-%d %H:%M'), axis=1)
+df_input = df_input.drop(columns=['Date GMT', 'Time GMT'])
+
+df_input.to_pickle(f"{config_dict['DATA']['FOLDER_PATH']}/{config_dict['DATA']['INPUT_DF_NAME']}")
+'''
+
 #%%
 '''
 site_ = 3
