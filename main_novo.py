@@ -1,20 +1,19 @@
 import pandas as pd
 import numpy as np
-import tensorflow as tf
-tf.autograph.set_verbosity(1, alsologtostdout=False)
 from copy import deepcopy
 from pipeline import Training_Process
-from lstm_model import LSTM_Model
-from tensorflow.python.keras.utils.data_utils import Sequence
 import datetime
 import json
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 
 config_dict={
     'HYPERPARAMETERS' : {
         'n_layers': (1, 4),
         'drop_out': (0, 0,5),
         'batch_size': [32, 64, 128, 256, 512],
-        'length': (1, 49),
+        'length': (8, 49),
         'learning_rate': (-4, -1)
     },
     'DATA':{
@@ -24,11 +23,12 @@ config_dict={
     'PARAMS': {
         'random_searchs': 10,
         'output_column': ['PM 2.5'], #['PM 2.5', 'Sulfur Dioxide (p.p.b)'],
-        'patience': 35,
+        'patience': 15,
         'sampling_rate': 1,
         'days_in_future': 1,
         'division_perc': (0.6, 0.2, 0.2),
         'epochs': 100,
+        'save_model_path': '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/models'
     }
 }
 
