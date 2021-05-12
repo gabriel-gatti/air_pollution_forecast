@@ -1,2 +1,0 @@
-,random_searchs,output_column,patience,sampling_rate,days_in_future,division_perc,epochs,n_layers,drop_out,batch_size,length,learning_rate
-0,1,"['PM 2.5', 'Sulfur Dioxide (p.p.b)']",1,1,1,"(0.6, 0.2, 0.2)",1,2,0.0,64,41,0.014464543387552792
