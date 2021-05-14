@@ -179,8 +179,9 @@ class Training_Process():
         print('Model Trained !!!')
 
         # Loading the best model---------------------------------------------------
-        best_model = tf.keras.models.load_model(self.model_folder+self.model_name+'.h5')
-        print('Best Model Loaded !!!')
+        #best_model = tf.keras.models.load_model(self.model_folder+self.model_name+'.h5')
+        #print('Best Model Loaded !!!')
+        best_model = lstm_model.model
 
         # Loading the best model---------------------------------------------------
         evaluation = best_model.evaluate(cycle(chain.from_iterable(self.valid_data)), steps=(self.row_count//self.batch_size)*self.division_perc[2])
@@ -215,7 +216,7 @@ class Training_Process():
         df_pred = pd.DataFrame({'Predicted': predictions, 'Actual': actuals})
         df_pred = utils.denormalize(df_pred, tpl_stats)
         #df_pred['\u0394 Predicted'] = df_pred['Predicted'] - df_pred['Actual']
-        
+
         #Save Plot Figure =============================
         max_v, min_v= (tpl_stats[0]+2*tpl_stats[1], tpl_stats[0]-2*tpl_stats[1])
         plt.figure()
@@ -227,10 +228,9 @@ class Training_Process():
             xlabel='Batch item',
             ylabel='Normalized Prediction (non-dimensional)',
             kind='scatter',
-            xlim=(min_v, max_v),
             ylim=(min_v, max_v)
-            )
-        
+            ) #xlim=(min_v, max_v),
+
         plt.plot([min_v,max_v], [min_v,max_v], color='red')
         plt.savefig(self.model_folder+"Predictions_Batch_Chart.png")
         print(f'Predictions Overview Chart Created and Saved to {self.model_folder+"Predictions_Batch_Chart.png"}')
@@ -251,7 +251,7 @@ class Training_Process():
         index_ouput = list(self.raw_dataframe.columns).index(self.output_column[0])
         x = range(-(self.length+1), 0)
         choosen_coords = np.random.choice(self.valid_data, 12)
-        
+
         plt.figure(figsize=(20, 16))
         for i in range(1,len(choosen_coords)+1):
             batch =next(choosen_coords[i-1].__iter__())
@@ -267,7 +267,24 @@ class Training_Process():
                 style=["Prediction", "Actual"],
                 hue = ["Prediction", "Actual"],
                 s=80)
-        
+
         plt.savefig(self.model_folder+"Predictions_in_Length_Chart.png")
         print(f'Predictions in Length Chart Created and Saved to {self.model_folder+"Predictions_in_Length_Chart.png"}')
     
+    def save_training_report(self):
+        history_dev = {k: v for k, v in self.history.history.items() if k.find('val_')==-1}
+        history_val = {k.replace('val_', ''): v for k, v in self.history.history.items() if k.find('val_')!=-1}
+        history_unified = {k: {'train': history_dev[k], 'dev': history_val[k]} for k in history_dev.keys()}
+        dict_df={key: pd.DataFrame(subhistory) for key, subhistory in history_unified.items()}
+
+        plt.figure(figsize=(20, 16))
+        fig, axes = plt.subplots(nrows=2, ncols=2)
+        items = list(dict_df.items())
+        items[0][1].plot(ax=axes[0,0], title=items[0][0])
+        items[1][1].plot(ax=axes[0,1], title=items[1][0])
+        items[2][1].plot(ax=axes[1,1], title=items[2][0])
+        items[3][1].plot(ax=axes[1,0], title=items[3][0])
+        
+        plt.savefig(self.model_folder+"Training_Report_Chart.png")
+        print(f'Training Report Chart Created and Saved to {self.model_folder+"Training_Report_Chart.png"}')
+        

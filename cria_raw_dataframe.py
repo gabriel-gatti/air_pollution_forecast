@@ -72,6 +72,7 @@ df_data = main()
 # %% Data Exploration
 import pandas as pd
 from datetime import datetime as dt
+import datetime
 import os
 import re
 
@@ -83,7 +84,7 @@ def read_large_csv(caminho: str) -> pd.DataFrame:
     mylist = []
     return pd.concat([mylist.append(chunk) for chunk in pd.read_csv(caminho, low_memory=False, chunksize=20000)], axis=0)
 
-path = '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/Unified Pickles'
+path = '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/Unified Pickles/merged'
 df_temp = ''
 for file in select_files_from_folder(path, '.*\.pkl'):
     filename = f'{path}/{file}'
@@ -95,13 +96,23 @@ for file in select_files_from_folder(path, '.*\.pkl'):
     else:
         print(f'Reading and Inner Joining: {file}')
         df_temp = pd.merge(df_temp, pd.read_pickle(filename), on=['Latitude','Longitude', 'Date GMT', 'Time GMT'], how="inner")
-        print(f'Tempo de leitura do {file}: {dt.now() - time_temp}')
+        print(f'Tempo de leitura e concatenação do {file}: {dt.now() - time_temp}')
 
-pos_name = path  + '/Hourly_Complete_TOTAL.pkl'
-print('Saving Pickle to : Hourly_Complete_TOTAL.pkl')
+pos_name = path  + '/Hourly_Complete_TOTAL_PM25.pkl'
 df_temp.sort_values(by=['Latitude','Longitude', 'Date GMT', 'Time GMT'], inplace=True)
 df_temp.drop_duplicates(subset=['Latitude','Longitude', 'Date GMT', 'Time GMT'], keep='first', inplace=True)
+# Format Date and Time
+df_temp['Day'] = df_temp['Date GMT'].apply(lambda x: (datetime.date(*list(map(int,x.split('-')))) - datetime.date(int(x.split('-')[0]),1,1)).days)
+df_temp['Hour'] = df_temp['Time GMT'].apply(lambda x: int(str(x[:2])))
+df_temp = df_temp.drop(columns=['Date GMT', 'Time GMT'])
+
+print('Saving Pickle to : Hourly_Complete_TOTAL_PM25.pkl')
 df_temp.to_pickle(pos_name)
+
+
+#%%
+path = '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/Unified Pickles/merged/Hourly_Complete_TOTAL_PM25.pkl'
+
 
 
 #%%

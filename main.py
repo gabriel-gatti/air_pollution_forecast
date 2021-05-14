@@ -12,24 +12,24 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 config_dict={
     'HYPERPARAMETERS' : {
-        'n_layers': (1, 4),
+        'n_layers': (1, 2),
         'drop_out': (0, 0,5),
         'batch_size': [32, 64, 128, 256, 512],
-        'length': (8, 49),
-        'learning_rate': (-4, -1)
+        'length': (41, 42), #(8, 49),
+        'learning_rate': (-5, -2)
     },
     'DATA':{
-        'FOLDER_PATH': '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/Unified Pickles',
-        'INPUT_DF_NAME': 'Hourly_Complete_PM25-SO2.pkl',
+        'FOLDER_PATH': '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/Unified Pickles/merged',
+        'INPUT_DF_NAME': 'Hourly_Complete_TOTAL_PM25.pkl',
     },
     'PARAMS': {
-        'random_searchs': 1,
+        'random_searchs': 10,
         'output_column': ['PM 2.5'], #['PM 2.5', 'Sulfur Dioxide (p.p.b)'],
-        'patience': 10,
+        'patience': 15,
         'sampling_rate': 1,
         'days_in_future': 1,
         'division_perc': (0.6, 0.2, 0.2),
-        'epochs': 1,
+        'epochs': 50,
         'save_model_path': '/home/gabriel-gatti/Documents/air_pollution_forecast/models/',
         'save_result_path': '/home/gabriel-gatti/Documents/air_pollution_forecast/resultados/',
         'columns_to_drop': ['Latitude', 'Longitude'],
@@ -59,7 +59,8 @@ def main(config_dict: dict):
 
     #Definindo os parametros e hyperparametros
     settings = config_dict['PARAMS']
-    hyperparam_list = [randomize_hyperparameter_tuning(config_dict['HYPERPARAMETERS']) for i in range(0,config_dict['PARAMS']['random_searchs'])]
+    # [{'n_layers': int(1), 'drop_out': float(0.25), 'batch_size': int(512), 'length': int(41), 'learning_rate': float(0.000016)}]
+    hyperparam_list = [randomize_hyperparameter_tuning(config_dict['HYPERPARAMETERS']) for i in range(0,config_dict['PARAMS']['random_searchs'])] 
 
     # Definindo variáveis relacionadas aos resultados
     lista_de_resultados = []
@@ -78,7 +79,6 @@ def main(config_dict: dict):
 
         # Train the model 
         hyper_trained = Training_Process(df_norm, stats, **settings)
-        
 
         settings['evaluation']= hyper_trained.evaluation
         settings['model']= hyper_trained.model.to_json()
@@ -89,6 +89,7 @@ def main(config_dict: dict):
         # Predictions
         hyper_trained.save_predictions_overview()
         hyper_trained.save_predictions_in_length()
+        hyper_trained.save_training_report()
 
         # Save Resultados a cada Modelo treinado para evitar perdas =============
         lista_de_resultados.append(deepcopy(settings))
@@ -98,7 +99,7 @@ def main(config_dict: dict):
 
         print('BREAKPOINT')
     return lista_de_resultados
-
+time_inicio = datetime.datetime.now()
+print(time_inicio)
 resultados = main(config_dict)
-
-print('Done !!!!')
+print('Tempo Decorrido: ' + str(datetime.datetime.now() - time_inicio))
