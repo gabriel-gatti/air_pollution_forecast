@@ -41,7 +41,7 @@ def randomize_hyperparameter_tuning(hyper_dict:dict) -> list:
             khasghjasbvd
             Inputs  ->  
 float(
-            Output  ->  
+            Output  -> 
             ========================================================================"""
             n_layers = np.random.randint(hyper_dict['n_layers'][0], hyper_dict['n_layers'][1])
             batch_size = np.random.choice(hyper_dict['batch_size'])

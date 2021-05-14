@@ -27,7 +27,7 @@ class LSTM_Model():
         model = tf.keras.models.Sequential()
         model.add(layers.InputLayer(input_shape=(self.length, self.n_var_input)))
 
-        # Group of layers----------------------------------------------------------
+        # Group of layers ---------------------------------------------------------
         for i in range(1, int(self.n_layers-1)):
             model.add(layers.LSTM(max((self.length+1)//2**i, self.days_in_future), activation='tanh', return_sequences=True))
 
