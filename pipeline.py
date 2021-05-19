@@ -48,7 +48,8 @@ class Training_Process():
         self.model_folder = f'{save_model_path}{self.model_name}/' if save_model_path else self.model_name
 
         # create Frames
-        self.train_data, self.train_target, self.dev_data, self.dev_target, self.valid_data, self.valid_target = self.generate_dataset()
+        #self.train_data, self.train_target, self.dev_data, self.dev_target, self.valid_data, self.valid_target = self.generate_dataset()
+        self.train_data, self.dev_data, self.valid_data = self.generate_dataset()
         print('Datasets Generated !!!!')
         
         self.model, self.history, self.evaluation, self.valid_sets = self.model_pipeline()
@@ -73,9 +74,7 @@ class Training_Process():
         Outputs ->  List of tuples: [(train_gen, train_target),
                                     (dev_gen, dev_target),
                                     (valid_gen, valid_target)]
-        ========================================================================"""        
-        self.raw_dataframe.sort_values(by=['Latitude', 'Longitude', 'Day', 'Hour'], inplace=True)
-        self.raw_dataframe = self.raw_dataframe.drop_duplicates(subset=['Latitude', 'Longitude', 'Day', 'Hour'], keep='first')
+        ========================================================================"""
 
         train_gen, train_target, dev_gen, dev_target, valid_gen, valid_target = ([], [], [], [], [], [])
         self.row_count = 0
@@ -123,7 +122,8 @@ class Training_Process():
             batch_size=self.batch_size, start_index=split[0],
             end_index=split[1], shuffle=False) for dt, tgt, split in zip_dados(datas, targets, splits)]
 
-        return train_gen, train_target, dev_gen, dev_target, valid_gen, valid_target
+        #return train_gen, train_target, dev_gen, dev_target, valid_gen, valid_target
+        return train_gen, dev_gen, valid_gen
 
     def model_pipeline(self):
         """========================================================================
@@ -287,4 +287,3 @@ class Training_Process():
         
         plt.savefig(self.model_folder+"Training_Report_Chart.png")
         print(f'Training Report Chart Created and Saved to {self.model_folder+"Training_Report_Chart.png"}')
-        

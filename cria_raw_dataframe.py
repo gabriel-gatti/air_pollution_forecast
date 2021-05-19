@@ -1,80 +1,17 @@
-
 import pandas as pd
-from datetime import datetime as dt
 import os
 import re
-#  r"C:\Users\gabri\Documents\ESTAT\Projeto\Dados AIP\{}\{}_{}.csv".format(variavel, variavel, ano)
+from functools import partial
+from utils import time_it, dateStr_2_Hours
 
-config = {
-    'ORIGIN_FOLDER_PATH': '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/Unified Pickles',
-    'USE_COLS': ['Sample Measurement', 'Latitude', 'Longitude', 'Date GMT', 'Time GMT'],
-    'DESTINATION_FOLDER_PATH': '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp'
+config_cria_dataframe = {
+    'attr_list': ['TEMP', 'RH_DP'], #['TEMP', 'RH_DP', 'SO2', 'WIND', 'PRESS', 'PM25'],
+    'attr_path': '/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/concat_per_attr',
+    'merged_path': '/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/merged',
+    'on_list': ['Latitude','Longitude', 'Date GMT', 'Time GMT'],
+    'use_cache': True,
+    'index_list': ['Latitude','Longitude', 'Date GMT', 'Time GMT'],
 }
-
-class DataHandler:
-    '''
-    Description:
-
-    params:
-
-    methods:
-
-    '''
-    def __init__(self, config_dict: dict, extra_pars:dict={}):
-        self.dataframes = {}
-        self.origin_folder_path = config_dict.get('ORIGIN_FOLDER_PATH', 'Missing Folder Path')
-        self.destination_folder_path = config_dict.get('DESTINATION_FOLDER_PATH', 'Missing Folder Path')
-
-    def select_files_from_folder(self, regex_pattern: str) -> list:
-        files_list = os.listdir(self.origin_folder_path)
-        return list(filter(lambda file: re.search(regex_pattern, file), files_list))
-
-    def read_large_csv(self, caminho: str) -> pd.DataFrame:
-        mylist = []
-        return pd.concat([mylist.append(chunk) for chunk in pd.read_csv(caminho, low_memory=False, chunksize=20000)], axis=0)
-    
-    def write_2_pkl(self, df_key_list:list=[]):
-        df_key_list = df_key_list if len(df_key_list)>0 else list(self.dataframes.keys())
-        for df_key in df_key_list:
-            temp = self.dataframes.get(df_key, False)
-            if temp:
-                self.dataframes.get(df_key, False).to_pickle(self.read_large_csv(f'{self.destination_folder_path}/{df_key}'))
-    
-    def del_df_from_handler(self, df_key_list:list=[]):
-        df_key_list = df_key_list if df_key_list else list(self.dataframes.keys())
-        for df_key in df_key_list:
-            self.dataframes.pop(df_key, None)
-
-    def load_csv_files(self, file_names:list):
-        file_names = file_names if isinstance(file_names, list) else [file_names]
-        for file_name in file_names:
-            print(f'Reading: ' + self.origin_folder_path + '/' + file_name)
-            self.dataframes[file_name] = self.read_large_csv(f'{self.origin_folder_path}/{file_name}')
-    
-    def load_pkl_files(self, file_names:list):
-        file_names = file_names if isinstance(file_names, list) else [file_names]
-        for file_name in file_names:
-            print(f'Reading: ' + self.origin_folder_path + '/' + file_name)
-            self.dataframes[file_name] = pd.read_pickle(f'{self.origin_folder_path}/{file_name}')
-
-
-# %%
-def main():
-    data_handler = DataHandler(config)
-    
-    data_handler.load_pkl_files(data_handler.select_files_from_folder('.*\.pkl')[0])
-
-    #df.reset_index(inplace=True) for k, df in data_handler.dataframes.items()]
-
-    return data_handler
-
-df_data = main()
-# %% Data Exploration
-import pandas as pd
-from datetime import datetime as dt
-import datetime
-import os
-import re
 
 def select_files_from_folder(origin_folder_path, regex_pattern: str) -> list:
     files_list = os.listdir(origin_folder_path)
@@ -84,132 +21,61 @@ def read_large_csv(caminho: str) -> pd.DataFrame:
     mylist = []
     return pd.concat([mylist.append(chunk) for chunk in pd.read_csv(caminho, low_memory=False, chunksize=20000)], axis=0)
 
-path = '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/Unified Pickles/merged'
-df_temp = ''
-for file in select_files_from_folder(path, '.*\.pkl'):
-    filename = f'{path}/{file}'
-    if isinstance(df_temp, str):
-        print(f'Reading: {file}')
-        time_temp = dt.now()
-        df_temp = pd.read_pickle(filename)
-        print(f'Tempo de leitura do {file}: {dt.now() - time_temp}')
-    else:
-        print(f'Reading and Inner Joining: {file}')
-        df_temp = pd.merge(df_temp, pd.read_pickle(filename), on=['Latitude','Longitude', 'Date GMT', 'Time GMT'], how="inner")
-        print(f'Tempo de leitura e concatenação do {file}: {dt.now() - time_temp}')
-
-pos_name = path  + '/Hourly_Complete_TOTAL_PM25.pkl'
-df_temp.sort_values(by=['Latitude','Longitude', 'Date GMT', 'Time GMT'], inplace=True)
-df_temp.drop_duplicates(subset=['Latitude','Longitude', 'Date GMT', 'Time GMT'], keep='first', inplace=True)
-# Format Date and Time
-df_temp['Day'] = df_temp['Date GMT'].apply(lambda x: (datetime.date(*list(map(int,x.split('-')))) - datetime.date(int(x.split('-')[0]),1,1)).days)
-df_temp['Hour'] = df_temp['Time GMT'].apply(lambda x: int(str(x[:2])))
-df_temp = df_temp.drop(columns=['Date GMT', 'Time GMT'])
-
-print('Saving Pickle to : Hourly_Complete_TOTAL_PM25.pkl')
-df_temp.to_pickle(pos_name)
-
-
-#%%
-path = '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/Unified Pickles/merged/Hourly_Complete_TOTAL_PM25.pkl'
-
-#asd
-
-#%%
-'''
-dict_types = {
-    'hourly_42401': ('Sulfur Dioxide', 'ppb'),
-    'hourly_88101': ('PM 2.5', 'Microgrmas/Cubic Meter'),
-}
-
-path = '/media/gabriel-gatti/HDD/Users/gabri/Documents/ESTAT/Projeto/Dados AIP/'
-dest_path = '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/'
-
-for key in dict_types.keys():
-        for file in select_files_from_folder('/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/Unified Pickles', '.*\.pkl'):
-        filename = path+key+'/'+file
-        if isinstance(df_temp, str):
-            print(f'Reading: {file}')
-            time_temp = dt.now()
-            df_temp = pd.read_pickle(filename)
-            print(f'Tempo de leitura do {file}: {dt.now() - time_temp}')
+def inner_join_pickles(origin_folder:str, file_names:list=[], on_list:list=['Latitude','Longitude', 'Date GMT', 'Time GMT']):
+    filenames = list(filter(lambda x:re.search('.*\.pkl', x),os.listdir(origin_folder))) if not file_names else file_names #: if None filename is passed uses all pickles in the folder
+    df_temp = ''
+    #Read File by File and Merge
+    for file in filenames:
+        fullname = f'{origin_folder}/{file}'
+        if isinstance(df_temp, str): # First file to be read
+            df_temp, _ = time_it(partial(pd.read_pickle, fullname),
+            init_msg='Lendo ' + file + ' ...',
+            end_msg='Tempo de leitura do ' + file + ': {duracao}')
         else:
-            print(f'Reading and Concating: {file}')
-            df_temp = pd.concat([df_temp, pd.read_csv(filename)
-            print(f'Tempo de leitura do {file}: {dt.now() - time_temp}')
+            df_temp, _ = time_it(partial(lambda df_temp, fullname, on_list: pd.merge(df_temp, pd.read_pickle(fullname), on=on_list, how="inner"), df_temp, fullname, on_list),
+            init_msg='Lendo e executando InnerMerge ' + file + ' ...',
+            end_msg='Tempo de leitura e Execução do InnerMerge do ' + file + ': {duracao}')
+    
+    return df_temp
 
-    pos_name = dest_path + key + '_TOTAL.pkl'
-    print('Saving Pickle to : ' + pos_name)
+def trata_dados(dataframe, index_list:list=['Latitude','Longitude', 'Date GMT', 'Time GMT']):
+    df_temp = dataframe #deepcopy(dataframe)
 
-    df_temp.rename(columns={'Sample Measurement': dict_types[key][0]})
-    df_temp.to_pickle(pos_name)
+    # Sort_Values and Drop_Duplicates
+    df_temp.sort_values(by=index_list, inplace=True)
+    df_temp.drop_duplicates(subset=index_list, keep='first', inplace=True)
+    
+    # Format Date and Time
+    df_temp['Ref_Hour'] = (df_temp['Date GMT'] + df_temp['Time GMT']).apply(dateStr_2_Hours)
+    df_temp = df_temp.drop(columns=['Date GMT', 'Time GMT'])
 
-'''
-#%%
-'''
-df_input = df_input.apply(lambda x: datetime.datetime.strptime(' '.join([x['Date GMT'], x['Time GMT']]), '%Y-%m-%d %H:%M'), axis=1)
-df_input = df_input.drop(columns=['Date GMT', 'Time GMT'])
+    return df_temp
 
-df_input.to_pickle(f"{config_dict['DATA']['FOLDER_PATH']}/{config_dict['DATA']['INPUT_DF_NAME']}")
-'''
+def load_dataframe(attr_path:str, merged_path:str, attr_list:list=['TEMP', 'RH_DP', 'SO2', 'WIND', 'PRESS', 'PM25'],
+    on_list:list=['Latitude','Longitude', 'Date GMT', 'Time GMT'], index_list:list=['Latitude','Longitude', 'Date GMT', 'Time GMT'], use_cache=True):
 
-#%%
-'''
-site_ = 3
+    pos_name = f"Hourly_Merged_{'-'.join(sorted(attr_list))}.pkl"
+    pos_fullname = f'{merged_path}/{pos_name}'
+    
+    # Search for cache
+    if use_cache and os.path.exists(pos_fullname):
+        return time_it(partial(pd.read_pickle, pos_fullname),
+        init_msg='Cache Found! Reading ' + pos_name + ' ...',
+        end_msg='Tempo de Leitura do ' + pos_name + ': {duracao}')[0]
 
-df = df_temperatura
-df_temporario = df[df['Site Num']==site_][['Date Local','Time Local','Sample Measurement']]
-df_temporario['Date-Time'] = df_temporario['Date Local'] + ' _ ' + df_temporario['Time Local']
-df_temporario = df_temporario[['Date-Time','Sample Measurement']].set_index('Date-Time')
-df_temporario = df_temporario.groupby(df_temporario.index)[['Sample Measurement']].mean()
-df_temperatura_1 = df_temporario.rename(columns = {"Sample Measurement" : "Temperature (F)"})
+    # Create New File
+    print(f'')
+    df_temp, _ = time_it(partial(inner_join_pickles, attr_path, list(map(lambda attr: f'hourly_{attr}_TOTAL.pkl', attr_list)), on_list),
+    init_msg='Cache Not Found! Creating new File ' + pos_name + ' ...',
+    end_msg='Tempo de criação do ' + pos_name + ': {duracao}')
+    
+    #Trata novo DataFrame
+    df_temp, _ = time_it(partial(trata_dados, df_temp, index_list),
+    init_msg='Tratando DataFrame ' + pos_name + ' ...',
+    end_msg='Tempo de tratamento do ' + pos_name + ': {duracao}')
+    
+    # Save to Pickle
+    print(f'Saving resulting DataFrame to : {pos_name}')
+    df_temp.to_pickle(pos_fullname)
 
-df = df_pressao
-df_temporario = df[df['Site Num']==site_][['Date Local','Time Local','Sample Measurement']]
-df_temporario['Date-Time'] = df_temporario['Date Local'] + ' _ ' + df_temporario['Time Local']
-df_temporario = df_temporario[['Date-Time','Sample Measurement']].set_index('Date-Time')
-df_temporario = df_temporario.groupby(df_temporario.index)[['Sample Measurement']].mean()
-df_pressao_1 = df_temporario.rename(columns = {"Sample Measurement" : "Pressao"})
-
-df = df_umidade
-df_temporario = df[df['Site Num']==site_][['Date Local','Time Local','Sample Measurement']]
-df_temporario['Date-Time'] = df_temporario['Date Local'] + ' _ ' + df_temporario['Time Local']
-df_temporario = df_temporario[['Date-Time','Sample Measurement']].set_index('Date-Time')
-df_temporario = df_temporario.groupby(df_temporario.index)[['Sample Measurement']].mean()
-df_umidade_1 = df_temporario.rename(columns = {"Sample Measurement" : "Umidade"})
-
-df = df_vento
-df_temporario = df[df['Site Num']==site_][['Date Local','Time Local','Sample Measurement']]
-df_temporario['Date-Time'] = df_temporario['Date Local'] + ' _ ' + df_temporario['Time Local']
-df_temporario = df_temporario[['Date-Time','Sample Measurement']].set_index('Date-Time')
-df_temporario = df_temporario.groupby(df_temporario.index)[['Sample Measurement']].mean()
-df_vento_1 = df_temporario.rename(columns = {"Sample Measurement" : "Vento"})
-
-df = df_44201
-df_temporario = df[df['Site Num']==site_][['Date Local','Time Local','Sample Measurement']]
-df_temporario['Date-Time'] = df_temporario['Date Local'] + ' _ ' + df_temporario['Time Local']
-df_temporario = df_temporario[['Date-Time','Sample Measurement']].set_index('Date-Time')
-df_temporario = df_temporario.groupby(df_temporario.index)[['Sample Measurement']].mean()
-df_44201_1 = df_temporario.rename(columns = {"Sample Measurement" : "44201"})
-
-df_result.plot(subplots=True, layout=(5,1), figsize=(22,22))
-#%% TREATING DATA
-dicionar = {'42101'	: 'Carbon monoxide',
-            '42401' : 'Sulfur dioxide',
-            '42402' : 'Hydrogen sulfide',
-            '42600' : 'Reactive oxides of nitrogen (NOy)',
-            '42601' : 'Nitric oxide (NO)',
-            '42602' : 'Nitrogen dioxide (NO2)',
-            '42603' : 'Oxides of nitrogen (NOx)',
-            '42612' : 'NOy - NO',
-            '43102' : 'Total NMOC (non-methane organic compound)',
-            '44201' : 'Ozone'}
-
-
-df_result = pd.read_csv("Dados AIP\Site_3_NY_Agrupado.csv", low_memory=False)
-features = df_result.reset_index().interpolate(method= 'cubic').dropna(axis=0).set_index('Date-Time').drop(['index'], axis=1).rename(columns= dicionar)
-features.plot(subplots=True, layout=(5,1), figsize=(8,6))
-features_indexes = features.index
-features_columns = features.columns
-out_col = "Ozone (Parts per million)"
-'''
+    return df_temp

@@ -3,10 +3,9 @@
 @author: Gabriel Gatti Lima
 e-mail: gabriel.gatti.lima@usp.br
 """
-
-import matplotlib as plt
-import seaborn as sns
+from typing import Callable
 import pandas as pd
+import datetime
 import numpy as np
 
 def naive_forecast(serie, days_in_the_future, stats_out, denorm=True):
@@ -61,3 +60,40 @@ def denormalize(dataframe, stats):
     ========================================================================"""
     return dataframe*stats[1] + stats[0]
 
+def time_it(func:Callable, init_msg:str='', end_msg:str='Elapsed Time {duracao}'):
+    if init_msg:
+        print(init_msg)
+    ini_time = datetime.datetime.now()
+    resultado_func = func()
+    duracao = datetime.datetime.now() - ini_time
+    print(end_msg.format(duracao=duracao))
+
+    return (resultado_func, duracao)
+
+format_str = '%Y-%m-%d%H:%M'
+hour_base = datetime.datetime.strptime('2000-01-0100:00', format_str)
+
+def dateStr_2_Hours(date_str:str):
+    format_str = '%Y-%m-%d%H:%M'
+    hour_base=datetime.datetime.strptime('2000-01-0100:00', format_str)
+    return (datetime.datetime.strptime(date_str, format_str) - hour_base).total_seconds()//3600
+
+def Hours_2_datetime(hours):
+    format_str = '%Y-%m-%d%H:%M'
+    hour_base=datetime.datetime.strptime('2000-01-0100:00', format_str)
+    
+    return hour_base + datetime.timedelta(seconds=hours*3600)
+
+def randomize_hyperparameter_tuning(hyper_dict:dict) -> list:
+    """========================================================================
+    khasghjasbvd
+    Inputs  ->  
+    Output  -> 
+    ========================================================================"""
+    n_layers = np.random.randint(hyper_dict['n_layers'][0], hyper_dict['n_layers'][1])
+    batch_size = np.random.choice(hyper_dict['batch_size'])
+    length = np.random.randint(hyper_dict['length'][0], hyper_dict['length'][1])
+    learning_rate = 10**np.random.uniform(hyper_dict['learning_rate'][0], hyper_dict['learning_rate'][1])
+    drop_out = np.random.uniform(hyper_dict['drop_out'][0], hyper_dict['drop_out'][1])
+    
+    return { 'n_layers': int(n_layers), 'drop_out': float(drop_out), 'batch_size': int(batch_size), 'length': int(length), 'learning_rate': float(learning_rate)}

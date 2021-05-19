@@ -6,61 +6,58 @@ import datetime
 import json
 import os
 import utils
-import matplotlib.pyplot as plt
+from cria_raw_dataframe import *
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-config_dict={
+config_dict = {
     'HYPERPARAMETERS' : {
         'n_layers': (1, 2),
         'drop_out': (0, 0,5),
         'batch_size': [32, 64, 128, 256, 512],
-        'length': (41, 42), #(8, 49),
+        'length': (8, 9), #(8, 49),
         'learning_rate': (-5, -2)
     },
-    'DATA':{
-        'FOLDER_PATH': '/home/gabriel-gatti/Documents/air_pollution_forecast_BackUp/Unified Pickles/merged',
-        'INPUT_DF_NAME': 'Hourly_Complete_TOTAL_PM25.pkl',
+    'DATAFRAME': {
+        'attr_list': ['TEMP', 'RH_DP', 'WIND', 'PRESS', 'SO2'], #['TEMP', 'RH_DP', 'SO2', 'WIND', 'PRESS', 'PM25'], # vira do Feature Selection
+        'attr_path': '/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/concat_per_attr',
+        'merged_path': '/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/merged',
+        'on_list': ['Latitude','Longitude', 'Date GMT', 'Time GMT'],
+        'use_cache': False,
+        'index_list': ['Latitude','Longitude', 'Date GMT', 'Time GMT'],
     },
+    'random_searchs': 10,
     'PARAMS': {
-        'random_searchs': 10,
-        'output_column': ['PM 2.5'], #['PM 2.5', 'Sulfur Dioxide (p.p.b)'],
+        'output_column': ['TEMP'], #['PM 2.5', 'Sulfur Dioxide (p.p.b)'],
         'patience': 15,
         'sampling_rate': 1,
         'days_in_future': 1,
         'division_perc': (0.6, 0.2, 0.2),
         'epochs': 50,
-        'save_model_path': '/home/gabriel-gatti/Documents/air_pollution_forecast/models/',
-        'save_result_path': '/home/gabriel-gatti/Documents/air_pollution_forecast/resultados/',
-        'columns_to_drop': ['Latitude', 'Longitude'],
+        'save_model_path': '/home/gabriel-gatti/Documents/Resultados TCC/models/',
+        'save_result_path': '/home/gabriel-gatti/Documents/Resultados TCC/resultados/',
+        'columns_to_drop': ['Latitude', 'Longitude', 'Ref_Hour'],
+    },
+    'TRANSLATION': {
+        'TEMP': 'Temperature (ºF)',
+        'RH_DP': 'Relative Humidity (%)',
+        'SO2': 'Sulfur Dioxide (p.p.b)',
+        'WIND': 'Wind Speed - Resultant (knots)',
+        'PRESS': 'Barometric pressure (Millibars)',
+        'PM25': ''
     }
 }
 
-def randomize_hyperparameter_tuning(hyper_dict:dict) -> list:
-            """========================================================================
-            khasghjasbvd
-            Inputs  ->  
-float(
-            Output  -> 
-            ========================================================================"""
-            n_layers = np.random.randint(hyper_dict['n_layers'][0], hyper_dict['n_layers'][1])
-            batch_size = np.random.choice(hyper_dict['batch_size'])
-            length = np.random.randint(hyper_dict['length'][0], hyper_dict['length'][1])
-            learning_rate = 10**np.random.uniform(hyper_dict['learning_rate'][0], hyper_dict['learning_rate'][1])
-            drop_out = np.random.uniform(hyper_dict['drop_out'][0], hyper_dict['drop_out'][1])
-            
-            return { 'n_layers': int(n_layers), 'drop_out': float(drop_out), 'batch_size': int(batch_size), 'length': int(length), 'learning_rate': float(learning_rate)}
-
 def main(config_dict: dict):
     #Definindo o DataFrame Base 
-    df_input = pd.read_pickle(f"{config_dict['DATA']['FOLDER_PATH']}/{config_dict['DATA']['INPUT_DF_NAME']}")
-    df_norm, stats = utils.normalize(df_input)    
+    df_input = load_dataframe(**config_dict['DATAFRAME'])
+    df_norm, stats = utils.normalize(df_input)
     stats = tuple(map(lambda x: x.drop(config_dict['PARAMS']['columns_to_drop']), stats))
 
     #Definindo os parametros e hyperparametros
     settings = config_dict['PARAMS']
     # [{'n_layers': int(1), 'drop_out': float(0.25), 'batch_size': int(512), 'length': int(41), 'learning_rate': float(0.000016)}]
-    hyperparam_list = [randomize_hyperparameter_tuning(config_dict['HYPERPARAMETERS']) for i in range(0,config_dict['PARAMS']['random_searchs'])] 
+    hyperparam_list = [{'n_layers': int(1), 'drop_out': float(0.25), 'batch_size': int(512), 'length': int(41), 'learning_rate': float(0.000016)}] #[utils.randomize_hyperparameter_tuning(config_dict['HYPERPARAMETERS']) for i in range(0,config_dict['random_searchs'])] 
 
     # Definindo variáveis relacionadas aos resultados
     lista_de_resultados = []
@@ -99,7 +96,7 @@ def main(config_dict: dict):
 
         print('BREAKPOINT')
     return lista_de_resultados
-time_inicio = datetime.datetime.now()
-print(time_inicio)
-resultados = main(config_dict)
-print('Tempo Decorrido: ' + str(datetime.datetime.now() - time_inicio))
+
+#resultados = main(config_dict)
+
+load_dataframe(**config_dict['DATAFRAME'])
