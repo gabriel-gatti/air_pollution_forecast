@@ -19,14 +19,14 @@ config_dict = {
         'learning_rate': (-5, -2)
     },
     'DATAFRAME': {
-        'attr_list': ['TEMP', 'RH_DP', 'WIND', 'PRESS', 'SO2'], #['TEMP', 'RH_DP', 'SO2', 'WIND', 'PRESS', 'PM25'], # vira do Feature Selection
+        'attr_list': ['TEMP', 'RH_DP', 'WIND', 'PRESS', 'SO2', 'PM25'], #['TEMP', 'RH_DP', 'SO2', 'WIND', 'PRESS', 'PM25'], # vira do Feature Selection
         'attr_path': '/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/concat_per_attr',
-        'merged_path': '/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/merged',
+        'merged_path': '/home/gabriel-gatti/Documents/Resultados TCC', #'/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/merged',
         'on_list': ['Latitude','Longitude', 'Date GMT', 'Time GMT'],
-        'use_cache': False,
+        'use_cache': True,
         'index_list': ['Latitude','Longitude', 'Date GMT', 'Time GMT'],
     },
-    'random_searchs': 10,
+    'random_searchs': 1,
     'PARAMS': {
         'output_column': ['TEMP'], #['PM 2.5', 'Sulfur Dioxide (p.p.b)'],
         'patience': 15,
@@ -97,6 +97,6 @@ def main(config_dict: dict):
         print('BREAKPOINT')
     return lista_de_resultados
 
-#resultados = main(config_dict)
+resultados = main(config_dict)
 
-load_dataframe(**config_dict['DATAFRAME'])
+#load_dataframe(**config_dict['DATAFRAME'])

@@ -2,7 +2,7 @@ import pandas as pd
 import os
 import re
 from functools import partial
-from utils import time_it, dateStr_2_Hours
+from utils import time_it, dateStr_2_Hours, list_lat
 
 config_cria_dataframe = {
     'attr_list': ['TEMP', 'RH_DP'], #['TEMP', 'RH_DP', 'SO2', 'WIND', 'PRESS', 'PM25'],
@@ -45,6 +45,9 @@ def trata_dados(dataframe, index_list:list=['Latitude','Longitude', 'Date GMT', 
     df_temp.sort_values(by=index_list, inplace=True)
     df_temp.drop_duplicates(subset=index_list, keep='first', inplace=True)
     
+    # Filter Coord
+    df_temp = df_temp[df_temp['Latitude'].isin(list_lat)]
+
     # Format Date and Time
     df_temp['Ref_Hour'] = (df_temp['Date GMT'] + df_temp['Time GMT']).apply(dateStr_2_Hours)
     df_temp = df_temp.drop(columns=['Date GMT', 'Time GMT'])
