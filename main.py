@@ -99,4 +99,4 @@ def main(config_dict: dict):
 
 resultados = main(config_dict)
 
-#load_dataframe(**config_dict['DATAFRAME'])
+# load_dataframe(**config_dict['DATAFRAME'])
