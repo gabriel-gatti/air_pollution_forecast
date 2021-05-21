@@ -78,7 +78,7 @@ def main(config_dict: dict):
         hyper_trained = Training_Process(df_norm, stats, **settings)
 
         settings['evaluation']= hyper_trained.evaluation
-        settings['model']= hyper_trained.model.to_json()
+        #settings['model']= hyper_trained.model.to_json()
         settings['history']= json.dumps(hyper_trained.history.history)
         settings['model_name']= hyper_trained.model_name
         

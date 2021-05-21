@@ -52,7 +52,7 @@ class Training_Process():
         self.train_data, self.dev_data, self.valid_data = self.generate_dataset()
         print('Datasets Generated !!!!')
         
-        self.model, self.history, self.evaluation, self.valid_sets = self.model_pipeline()
+        self.model, self.history, self.evaluation = self.model_pipeline()
         print('Training Process Finished')
 
     create_model_name = lambda self: f'MODEL_{datetime.datetime.now().strftime("%y%b%d-%Hh%Mm%Ss")}_#LearningRate={"{:.6f}".format(self.learning_rate)}_#Layers={self.n_layers}_#Length={self.length}_#BatchSize={self.batch_size}'
@@ -187,7 +187,7 @@ class Training_Process():
         evaluation = best_model.evaluate(cycle(chain.from_iterable(self.valid_data)), steps=(self.row_count//self.batch_size)*self.division_perc[2])
         print('Model Evaluated !!!')
 
-        return best_model, history, evaluation, (self.valid_data, self.valid_target)
+        return best_model, history, evaluation
 
     def save_predictions_overview(self):
         """========================================================================
