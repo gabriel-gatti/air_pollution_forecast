@@ -1,3 +1,4 @@
+from mmap import ACCESS_DEFAULT
 import pandas as pd
 import numpy as np
 from copy import deepcopy
@@ -12,16 +13,16 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 config_dict = {
     'HYPERPARAMETERS' : {
-        'n_layers': (1, 2),
+        'n_layers': (1, 1),
         'drop_out': (0, 0,5),
         'batch_size': [32, 64, 128, 256, 512],
         'length': (8, 9), #(8, 49),
         'learning_rate': (-5, -2)
     },
     'DATAFRAME': {
-        'attr_list': ['TEMP', 'RH_DP', 'WIND', 'PRESS', 'SO2', 'PM25'], #['TEMP', 'RH_DP', 'SO2', 'WIND', 'PRESS', 'PM25'], # vira do Feature Selection
+        'attr_list': ['PM25', 'PRESS', 'RH_DP', 'SO2', 'TEMP', 'WIND', 'CO', 'NO2', 'OZONE'], #['TEMP', 'RH_DP', 'SO2', 'WIND', 'PRESS', 'PM25'], # vira do Feature Selection
         'attr_path': '/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/concat_per_attr',
-        'merged_path': '/home/gabriel-gatti/Documents/Resultados TCC', #'/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/merged',
+        'merged_path': '/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/merged',
         'on_list': ['Latitude','Longitude', 'Date GMT', 'Time GMT'],
         'use_cache': True,
         'index_list': ['Latitude','Longitude', 'Date GMT', 'Time GMT'],
@@ -33,7 +34,7 @@ config_dict = {
         'sampling_rate': 1,
         'days_in_future': 1,
         'division_perc': (0.6, 0.2, 0.2),
-        'epochs': 50,
+        'epochs': 100,
         'save_model_path': '/home/gabriel-gatti/Documents/Resultados TCC/models/',
         'save_result_path': '/home/gabriel-gatti/Documents/Resultados TCC/resultados/',
         'columns_to_drop': ['Latitude', 'Longitude', 'Ref_Hour'],
@@ -57,7 +58,7 @@ def main(config_dict: dict):
     #Definindo os parametros e hyperparametros
     settings = config_dict['PARAMS']
     # [{'n_layers': int(1), 'drop_out': float(0.25), 'batch_size': int(512), 'length': int(41), 'learning_rate': float(0.000016)}]
-    hyperparam_list = [{'n_layers': int(1), 'drop_out': float(0.25), 'batch_size': int(512), 'length': int(41), 'learning_rate': float(0.000016)}] #[utils.randomize_hyperparameter_tuning(config_dict['HYPERPARAMETERS']) for i in range(0,config_dict['random_searchs'])] 
+    hyperparam_list = [{'n_layers': int(1), 'drop_out': float(0.25), 'batch_size': int(512), 'length': int(41), 'learning_rate': float(0.000015)}] #[utils.randomize_hyperparameter_tuning(config_dict['HYPERPARAMETERS']) for i in range(0,config_dict['random_searchs'])] 
 
     # Definindo variáveis relacionadas aos resultados
     lista_de_resultados = []
@@ -85,10 +86,11 @@ def main(config_dict: dict):
         # Generate Reports ======================================================
         # Predictions
         hyper_trained.save_predictions_overview()
-        hyper_trained.save_predictions_in_length()
+        # hyper_trained.save_predictions_in_length()
         hyper_trained.save_training_report()
 
         # Save Resultados a cada Modelo treinado para evitar perdas =============
+
         lista_de_resultados.append(deepcopy(settings))
         df_resultado = pd.DataFrame(lista_de_resultados)
         df_resultado.to_csv(resultado_save_path)
@@ -97,6 +99,21 @@ def main(config_dict: dict):
         print('BREAKPOINT')
     return lista_de_resultados
 
-resultados = main(config_dict)
+"""
+resultados = []
+for lat in [42.3295]:#[41.841039, 39.70595, 38.921847, 42.86183, 42.3295]:
+    config_dict['DATAFRAME']['attr_list'] = ['PM25', 'PRESS', 'RH_DP', 'SO2', 'TEMP', f'WIND_LAT={lat}']
+    resultados.append(main(config_dict))
+"""
 
-# load_dataframe(**config_dict['DATAFRAME'])
+attr_list = ['PM25', 'PRESS', 'RH_DP', 'SO2', 'TEMP', 'WIND', 'CO', 'NO2', 'OZONE']
+for i in range(len(attr_list)):
+    config = {
+        'attr_list': attr_list[0:i] + attr_list[i+1:], #['TEMP', 'RH_DP', 'SO2', 'WIND', 'PRESS', 'PM25'], # vira do Feature Selection
+        'attr_path': '/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/concat_per_attr',
+        'merged_path': '/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/merged',
+        'on_list': ['Latitude','Longitude', 'Date GMT', 'Time GMT'],
+        'use_cache': True,
+        'index_list': ['Latitude','Longitude', 'Date GMT', 'Time GMT'],
+    }
+    load_dataframe(**config)

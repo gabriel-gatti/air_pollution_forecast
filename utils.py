@@ -8,61 +8,9 @@ import pandas as pd
 import datetime
 import numpy as np
 
-list_lat = [33.4339,
-            33.553056,
-            33.6878,
-            35.2401,
-            38.22876,
-            38.587525,
-            38.921847,
-            39.70595,
-            39.810833,
-            39.83562,
-            40.46542,
-            40.720989,
-            41.3014,
-            41.530011,
-            41.606667,
-            41.821342,
-            41.841039,
-            41.97677,
-            42.302786,
-            42.3295,
-            42.86183,
-            42.862531,
-            43.05235,
-            43.14618,
-            43.466111,
-            43.608056,
-            44.52839]
-
-list_long = [-82.0224,
-            -86.815,
-            -84.2905,
-            -80.78568299999999,
-            -85.65451999999999,
-            -76.141006,
-            -77.013178,
-            -79.012,
-            -86.11444399999999,
-            -84.720524,
-            -79.960757,
-            -74.192892,
-            -72.90287099999999,
-            -90.587611,
-            -87.304722,
-            -73.297257,
-            -71.36097,
-            -91.68766,
-            -83.10653,
-            -71.0826,
-            -71.878626,
-            -71.38014,
-            -76.05921,
-            -77.54817,
-            -88.621111,
-            -72.982778,
-            -72.86884]
+list_lat = [41.841039]
+#list_lat  = [33.4339, 33.553056, 33.6878, 35.2401, 38.22876, 38.587525, 38.921847, 39.70595, 39.810833, 39.83562, 40.46542, 40.720989, 41.3014, 41.530011, 41.606667, 41.821342, 41.841039, 41.97677, 42.302786, 42.3295, 42.86183, 42.862531, 43.05235, 43.14618, 43.466111, 43.608056, 44.52839]
+list_long = [-82.0224, -86.815, -84.2905, -80.78568299999999, -85.65451999999999, -76.141006, -77.013178, -79.012, -86.11444399999999, -84.720524, -79.960757, -74.192892, -72.90287099999999,  -90.587611, -87.304722, -73.297257, -71.36097, -91.68766, -83.10653, -71.0826, -71.878626, -71.38014, -76.05921, -77.54817, -88.621111, -72.982778, -72.86884]
 
 def naive_forecast(serie, days_in_the_future, stats_out, denorm=True):
     """========================================================================
@@ -116,15 +64,25 @@ def denormalize(dataframe, stats):
     ========================================================================"""
     return dataframe*stats[1] + stats[0]
 
-def time_it(func:Callable, init_msg:str='', end_msg:str='Elapsed Time {duracao}'):
-    if init_msg:
-        print(init_msg)
-    ini_time = datetime.datetime.now()
-    resultado_func = func()
-    duracao = datetime.datetime.now() - ini_time
-    print(end_msg.format(duracao=duracao))
 
-    return (resultado_func, duracao)
+def time_it(func:Callable):
+    def inner_function(*args, **kwargs):
+        init_msg = kwargs.pop('init_msg') if 'init_msg' in kwargs else ''        
+        verbose = kwargs.pop('verbose') if 'verbose' in kwargs else True
+        end_msg = kwargs.pop('end_msg') if 'end_msg' in kwargs else ''
+
+        if init_msg and verbose: print(init_msg)
+        
+        ini_time = datetime.datetime.now()
+        res = func(*args, **kwargs)
+        duracao = datetime.datetime.now() - ini_time
+
+        if verbose: print(end_msg if end_msg else f'Elapsed Time executing {func.__name__}: {duracao}')
+
+        return (res, duracao)
+
+    return inner_function
+
 
 format_str = '%Y-%m-%d%H:%M'
 hour_base = datetime.datetime.strptime('2000-01-0100:00', format_str)
