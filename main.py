@@ -106,6 +106,7 @@ for lat in [42.3295]:#[41.841039, 39.70595, 38.921847, 42.86183, 42.3295]:
     resultados.append(main(config_dict))
 """
 
+"""
 attr_list = ['PM25', 'PRESS', 'RH_DP', 'SO2', 'TEMP', 'WIND', 'CO', 'NO2', 'OZONE']
 for i in range(len(attr_list)):
     config = {
@@ -117,3 +118,6 @@ for i in range(len(attr_list)):
         'index_list': ['Latitude','Longitude', 'Date GMT', 'Time GMT'],
     }
     load_dataframe(**config)
+"""
+
+
