@@ -2,8 +2,6 @@ import pandas as pd
 import os
 import re
 from functools import partial
-
-from pandas.core.reshape.concat import concat
 from utils import time_it, dateStr_2_Hours, list_lat
 
 
@@ -78,65 +76,6 @@ def load_dataframe(attr_path:str, merged_path:str, attr_list:list=['TEMP', 'RH_D
 
     return df_temp
 
-
-config_cria_dataframe = {
-    'attr_list': ['TEMP', 'RH_DP', 'SO2', 'WIND', 'PRESS', 'PM25'],
-    'attr_path': '/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/concat_per_attr',
-    'merged_path': '/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/merged',
-    'on_list': ['Latitude','Longitude', 'Date GMT', 'Time GMT'],
-    'use_cache': False,
-    'index_list': ['Latitude','Longitude', 'Date GMT', 'Time GMT'],
-    'lat': [41.841039, 39.70595, 38.921847, 42.86183, 42.3295],
-}
-
-def load_dataframe_lat(attr_path:str, merged_path:str, attr_list:list=['TEMP', 'RH_DP', 'SO2', 'WIND', 'PRESS', 'PM25'],
-    on_list:list=['Latitude','Longitude', 'Date GMT', 'Time GMT'], index_list:list=['Latitude','Longitude', 'Date GMT', 'Time GMT'], use_cache=True, lat:list=list_lat):
-
-    pos_name = f"Hourly_Merged_{'-'.join(sorted(attr_list))}.pkl"
-    pos_fullname = f'{merged_path}/{pos_name}'
-    
-    # Search for cache
-    if use_cache and os.path.exists(pos_fullname):
-        return time_it(partial(pd.read_pickle, pos_fullname),
-        init_msg='Cache Found! Reading ' + pos_name + ' ...',
-        end_msg='Tempo de Leitura do ' + pos_name + ': {duracao}')[0]
-
-    # Create New File
-    print(f'')
-    df_temp, _ = time_it(partial(inner_join_pickles, attr_path, list(map(lambda attr: f'hourly_{attr}_TOTAL.pkl', attr_list)), on_list),
-    init_msg='Cache Not Found! Creating new File ' + pos_name + ' ...',
-    end_msg='Tempo de criação do ' + pos_name + ': {duracao}')
-    
-    for lat in list_lat:
-        #Trata novo DataFrame
-        df_temp, _ = time_it(partial(trata_dados, df_temp, index_list, lat),
-        init_msg='Tratando DataFrame ' + pos_name + ' ...',
-        end_msg='Tempo de tratamento do ' + pos_name + ': {duracao}')
-        
-        # Save to Pickle
-        print(f'Saving resulting DataFrame to : {pos_name}')
-        df_temp.to_pickle(pos_fullname.replace('.pkl', f'_LAT={lat}.pkl'))
-
-    return df_temp
-    
-'''
-pos_name = 'Hourly_Merged_PM25-PRESS-RH_DP-SO2-TEMP-WIND.pkl'
-df_read = pd.read_pickle('df_inter.pkl')
-for lat in [41.841039, 39.70595, 38.921847, 42.86183, 42.3295]:
-    # Filter Coord
-    df_temp = df_read[df_temp['Latitude'].isin([lat])]
-
-    # Format Date and Time
-    df_temp['Ref_Hour'] = (df_temp['Date GMT'] + df_temp['Time GMT']).apply(dateStr_2_Hours)
-    df_temp = df_temp.drop(columns=['Date GMT', 'Time GMT'])
-
-    
-    # Save to Pickle
-    print(f'Saving resulting DataFrame to : {pos_name}')
-    df_temp.to_pickle(pos_name.replace('.pkl', f'_LAT={lat}.pkl'))
-'''
-
-
 def concat_attr(origin_path, destine_path):
     csvs = [f'{origin_path}/{x}' for x in select_files_from_folder(origin_path, '.*\.csv')]
     df_temp = None
@@ -153,7 +92,7 @@ def concat_attr(origin_path, destine_path):
     print(destine_path)
 
 
-attr_list = ['hourly_42101', 'hourly_42602', 'hourly_44201']
+attr_list = ['hourly_44201']#['hourly_42101', 'hourly_42602', 'hourly_44201']
 def concat_csvs(attr_list):
     origin = '/media/gabriel-gatti/HDD/Dados TCC/Attributes CSV/{attr_name}/'
     destino = '/media/gabriel-gatti/HDD/Dados TCC/Unified Pickles/concat_per_attr/{attr_name}.pkl'

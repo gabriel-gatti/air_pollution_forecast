@@ -53,6 +53,8 @@ def normalize(dataframe):
     return [(dataframe - media)/sd, (media, sd)]
 
 
+normalize_min_max = lambda df: (df-df.min())/(df.max()-df.min())
+
 def denormalize(dataframe, stats):
     """========================================================================
     Denormalize a given Dataframe

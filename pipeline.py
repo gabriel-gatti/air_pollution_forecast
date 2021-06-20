@@ -4,6 +4,8 @@ import tensorflow as tf
 import numpy as np
 import datetime
 from itertools import chain, cycle
+
+from tensorflow.keras import metrics
 from lstm_model import LSTM_Model
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -52,12 +54,12 @@ class Training_Process():
         self.train_data, self.dev_data, self.valid_data = self.generate_dataset()
         print('Datasets Generated !!!!')
         
-        self.model, self.history, self.evaluation = self.model_pipeline()
+        (self.model, self.history, self.evaluation), self.training_duration = self.model_pipeline()
         print('Training Process Finished')
 
     create_model_name = lambda self: f'MODEL_{datetime.datetime.now().strftime("%y%b%d-%Hh%Mm%Ss")}_#LearningRate={"{:.6f}".format(self.learning_rate)}_#Layers={self.n_layers}_#Length={self.length}_#BatchSize={self.batch_size}'
     
-    def generate_dataset(self):
+    def generate_dataset_multiple_coords(self):
         """========================================================================
         Create a pipeline wich consist of:
             1. Create datasets according to the hyperparameters
@@ -75,7 +77,7 @@ class Training_Process():
                                     (dev_gen, dev_target),
                                     (valid_gen, valid_target)]
         ========================================================================"""
-
+        
         train_gen, train_target, dev_gen, dev_target, valid_gen, valid_target = ([], [], [], [], [], [])
         self.row_count = 0
         datas, targets, splits = ([], [], [])
@@ -125,6 +127,65 @@ class Training_Process():
         #return train_gen, train_target, dev_gen, dev_target, valid_gen, valid_target
         return train_gen, dev_gen, valid_gen
 
+    def generate_dataset(self):
+        """========================================================================
+        Create a pipeline wich consist of:
+            1. Create datasets according to the hyperparameters
+
+        Input   ->  01. dataframe:          Raw dataset we're going use to
+                                            create the train, dev and valid sets
+                    02. output_column:      Feature we are trying to predict
+                    03. days_in_the_future: Lenght of the prediction
+                    04. train_perc:         Tuple(train_perc, dev_perc, valid_perc)
+                    05. batch_size:         Size of the batches
+                    06. sampling_rate:      Used to create the datasets
+                    07. length:             Number of time samples
+
+        Outputs ->  List of tuples: [(train_gen, train_target),
+                                    (dev_gen, dev_target),
+                                    (valid_gen, valid_target)]
+        ========================================================================"""
+        
+        train_gen, train_target, dev_gen, dev_target, valid_gen, valid_target = ([], [], [], [], [], [])
+        
+        # Define Target and Data based on the ouput column ==================
+        df_target = self.raw_dataframe[self.output_column]
+        df_data = self.raw_dataframe.drop(columns=self.columns_to_drop)
+
+        # Create Data and Target Np.arrays ==================================
+        data = df_data.values[:-self.days_in_future]
+
+        target = np.array([df_target.values[self.days_in_future:]])
+        target = target.reshape(
+            df_target.values[:-self.days_in_future].shape[0], len(self.output_column))
+
+        #defining split points ==============================================
+        train_split = int(len(self.raw_dataframe.index)*self.division_perc[0])
+        dev_split = int(len(self.raw_dataframe.index)*(sum(self.division_perc[0:2])))
+
+        # create targets list ===============================================
+        train_target = target[self.days_in_future:train_split]
+        dev_target = target[self.length+train_split:self.length+dev_split]
+        valid_target = target[self.length+dev_split:]
+
+        # create generators of Timeseries ===========================================
+        train_gen = tf.keras.preprocessing.sequence.TimeseriesGenerator(
+            data, target, length=self.length, sampling_rate=self.sampling_rate,
+            batch_size=self.batch_size, end_index=train_split, shuffle=True)
+
+        valid_gen = tf.keras.preprocessing.sequence.TimeseriesGenerator(
+            data, target, length=self.length, sampling_rate=self.sampling_rate,
+            batch_size=self.batch_size, start_index=dev_split, shuffle=False)
+
+        dev_gen = tf.keras.preprocessing.sequence.TimeseriesGenerator(
+            data, target, length=self.length, sampling_rate=self.sampling_rate,
+            batch_size=self.batch_size, start_index=train_split,
+            end_index=dev_split, shuffle=False)
+
+        #return train_gen, train_target, dev_gen, dev_target, valid_gen, valid_target
+        return train_gen, dev_gen, valid_gen
+
+    @utils.time_it
     def model_pipeline(self):
         """========================================================================
         Create a pipeline wich consist of:
@@ -165,17 +226,21 @@ class Training_Process():
         print('Callbacks Defined !!!!')
 
         # Compilando---------------------------------------------------------------
-        lstm_model.model.compile(loss=tf.keras.losses.Huber(),
+        lstm_model.model.compile(loss=tf.keras.losses.MeanSquaredError(),
                     optimizer=tf.keras.optimizers.Adam(lr=self.learning_rate, clipnorm=1),
-                    metrics=["mape", "mae", tf.keras.metrics.RootMeanSquaredError()])
+                    metrics=["mape", "mae", "mse"])
         print('Model Compiled !!!!')
 
         # Training the neural network----------------------------------------------
-        history = lstm_model.model.fit(cycle(chain.from_iterable(self.train_data)), epochs=self.epochs,
-                            validation_data=cycle(chain.from_iterable(self.dev_data)),
-                            callbacks=[early_stopping, model_checkpoint],
-                            use_multiprocessing=True, steps_per_epoch=(self.row_count//self.batch_size)*self.division_perc[0],
-                            validation_steps=(self.row_count//self.batch_size)*self.division_perc[1])
+        history = lstm_model.model.fit(
+            self.train_data,
+            epochs=self.epochs,
+            validation_data=self.dev_data,
+            callbacks=[early_stopping, model_checkpoint],
+            use_multiprocessing=True,
+            #steps_per_epoch=(self.row_count//self.batch_size)*self.division_perc[0],
+            #validation_steps=(self.row_count//self.batch_size)*self.division_perc[1]
+            )
         print('Model Trained !!!')
 
         # Loading the best model---------------------------------------------------
@@ -184,7 +249,7 @@ class Training_Process():
         best_model = lstm_model.model
 
         # Loading the best model---------------------------------------------------
-        evaluation = best_model.evaluate(cycle(chain.from_iterable(self.valid_data)), steps=(self.row_count//self.batch_size)*self.division_perc[2])
+        evaluation = best_model.evaluate(self.valid_data)#, steps=(self.row_count//self.batch_size)*self.division_perc[2])
         print('Model Evaluated !!!')
 
         return best_model, history, evaluation
@@ -206,19 +271,23 @@ class Training_Process():
         ========================================================================"""
         # Predict each Batch in the File===============
         predictions, actuals = ([], [])
-        for coord in self.valid_data:
-            for batch in coord:
-                predictions.extend(self.model.predict(batch[0], batch_size=self.batch_size)[:, -1])
-                actuals.extend(batch[1].reshape(batch[1].shape[0]))
+        #for coord in self.valid_data:
+            #for batch in coord:
+        for batch in self.valid_data:
+            predictions.extend(self.model.predict(batch[0], batch_size=self.batch_size)[:, -1])
+            actuals.extend(batch[1].reshape(batch[1].shape[0]))
 
         # Organize Dataframe =========================
         tpl_stats = tuple(map(lambda x: x[self.output_column].values[0], self.stats))
         df_pred = pd.DataFrame({'Predicted': predictions, 'Actual': actuals})
-        df_pred = utils.denormalize(df_pred, tpl_stats)
+        #df_pred = utils.denormalize(df_pred, tpl_stats)
         #df_pred['\u0394 Predicted'] = df_pred['Predicted'] - df_pred['Actual']
 
         #Save Plot Figure =============================
-        max_v, min_v= (tpl_stats[0]+2*tpl_stats[1], tpl_stats[0]-2*tpl_stats[1])
+        #max_v, min_v= (tpl_stats[0]+2*tpl_stats[1], tpl_stats[0]-2*tpl_stats[1])
+        max_actual, min_actual = df_pred['Actual'].max(), df_pred['Actual'].min()
+        max_pred, min_pred = df_pred['Predicted'].max(), df_pred['Predicted'].min()
+        
         plt.figure()
         df_pred.plot(
             x='Predicted',
@@ -228,10 +297,11 @@ class Training_Process():
             xlabel='Batch item',
             ylabel='Normalized Prediction (non-dimensional)',
             kind='scatter',
-            ylim=(min_v, max_v)
-            ) #xlim=(min_v, max_v),
-
-        plt.plot([min_v,max_v], [min_v,max_v], color='red')
+            ylim=(min_actual, max_actual),
+            xlim=(min_pred, max_pred),
+            ) 
+        min_linha, max_linha = min(min_actual, min_pred), max(max_actual, max_pred)
+        plt.plot([min_linha, max_linha], [min_linha, max_linha], color='red')
         plt.savefig(self.model_folder+"Predictions_Batch_Chart.png")
         print(f'Predictions Overview Chart Created and Saved to {self.model_folder+"Predictions_Batch_Chart.png"}')
 
@@ -278,12 +348,12 @@ class Training_Process():
         dict_df={key: pd.DataFrame(subhistory) for key, subhistory in history_unified.items()}
 
         plt.figure(figsize=(20, 16))
-        fig, axes = plt.subplots(nrows=2, ncols=2)
+        ##fig, axes = plt.subplots(nrows=2, ncols=2)
         items = list(dict_df.items())
-        items[0][1].plot(ax=axes[0,0], title=items[0][0])
-        items[1][1].plot(ax=axes[0,1], title=items[1][0])
-        items[2][1].plot(ax=axes[1,1], title=items[2][0])
-        items[3][1].plot(ax=axes[1,0], title=items[3][0])
+        items[0][1].plot(title='Loss Function: Root Mean Squared Error', xlabel='Epochs', ylabel='loss')
+        #items[1][1].plot(ax=axes[0,1], title=items[1][0])
+        #items[2][1].plot(ax=axes[1,1], title=items[2][0])
+        #items[3][1].plot(ax=axes[1,0], title=items[3][0])
         
         plt.savefig(self.model_folder+"Training_Report_Chart.png")
         print(f'Training Report Chart Created and Saved to {self.model_folder+"Training_Report_Chart.png"}')
