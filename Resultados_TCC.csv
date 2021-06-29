@@ -1,5 +1,5 @@
 Method,Nº Attributes to select,Attributes Selected,Time to Select (seconds),RMSE,n_layers,drop_out,batch_size,length,learning_rate,Training Duration
-VarianceTreshold,3,"RH_DP, TEMP, OZONE","0,004149","0,3746762574",1,"0,2739872003",32,27,"0,0000226",01:00:32.060089
+VarianceTreshold,3,"RH_DP, TEMP, OZONE","0,004149","0,3746762574",1,"0,2739872003",32,27,"0,0000226",01:00:32,060089
 SelectKBest_f_regression,3,"SO2, CO, NO2","0,004978","0,3396900594",1,"0,0639175538",256,26,"0,0000316","00:22:47,005996"
 SelectKBest_mutual_info_regression,3,"WIND, CO, NO2","2,747675","0,3296175003",1,"0,4917862006",128,47,"0,0000470","00:32:03,981491"
 SequentialFeatureSelector,3,"SO2, TEMP, CO","3,844448","0,3377866149",1,"0,3301797561",128,26,"0,0000392","00:20:38,226236"
